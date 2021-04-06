@@ -147,7 +147,7 @@ int VmeEvent::GetNextRecord(union DataParam *par)
 	
 	switch (type) {
 	case TYPE_SELF:
-		ProcessWaveForm(rec->self.d, rec->rec.len - 2, &par->wave);
+		ProcessWaveForm(rec->self.d, -(rec->rec.len - 2), &par->wave);
 		chan = (head->type & REC_CHANMASK) >> 16;
 		module = head->type & REC_SERIALMASK;
 		irc = (module << 16) | (chan << 8) | type;
@@ -168,17 +168,38 @@ int VmeEvent::GetNextRecord(union DataParam *par)
 	return irc;
 }
 
-void VmeEvent::ProcessWaveForm(short *data, int len, struct WaveFormParamStruct *par)
+void VmeEvent::ProcessWaveForm(short *data, int Len, struct WaveFormParamStruct *par)
 {
-	int i;
+	int i, len;
 	int A;
         float r;
+        float b, b2;
+        
+        if (Len < 0) len = -Len; else len = Len;
+        
 //	sign extension
 	for (i = 0; i < len; i++) if (data[i] & 0x4000) data[i] |= 0x8000;
+
+	// baseline
+        b = b2 = 0.;
+        if (Len < 0) {
+    	    // Calculate baseline with first 15 points (for selftriggers only)
+    	    for (i=0; i<15; i++) {
+    		b += data[i];
+    		b2 += data[i]*data[i];
+    	    }
+    	    b /= 15.;			// average
+    	    b2 = b2 / 15. - b * b;	// rms
+    	    
+    	    if (b2 > 5) {
+    		b = 0.;		// bad baseline
+    	    }
+        }
+        
 //	amplitude
 	A = -65000;
 	for (i=0; i<len; i++) if (A < data[i]) A = data[i];
-	par->A = A;
+	par->A = A - b;
 //	time
         for (i=0; i<len; i++) if (data[i] > A/2) break;
         if (!i || i == len) {
@@ -190,8 +211,8 @@ void VmeEvent::ProcessWaveForm(short *data, int len, struct WaveFormParamStruct 
 	}
 //	integral
 	par->I = 0;
-	for (i = 0; i < len; i++) par->I += data[i];
-	par->Q = 1;	// to be done
+	for (i = 0; i < len; i++) par->I += (data[i] - b);
+	par->Q = 1. + b2;	// to be done
 }
 
 //	Do simple clustering for clean events
@@ -350,6 +371,7 @@ void VmeEvent::ProcessTrack(struct prop_hit *data, int len, struct TrackParamStr
 int main(int argc, char **argv)
 {
 	char str[1024];
+	char *ptr;
 	int fnum;
 	FILE *fVME;
 	TFile *fOut;
@@ -360,7 +382,8 @@ int main(int argc, char **argv)
 	int i, irc, EventCnt;
 	int mod, chan;
 	const int ModShift = 48;
-	const char *SiMap[128] = {
+// Si Map of PNPI test
+/*	const char *SiMap[128] = {
 		"DanssAR", "DanssAC", "DanssAL", "DanssBR", "DanssBC", "DanssBL", "DanssCR", "DanssCC", // 48.0-7
 		"DanssCL", "DanssDR", "DanssDC", "DanssDL", "DanssER", "DanssEC", "DanssEL", NULL, 	// 48.8-15
 		"DanssFR", "DanssFC", "DanssFL", NULL,      NULL     , NULL,      "DanssUC", "DanssVC", // 48.16-23
@@ -377,7 +400,27 @@ int main(int argc, char **argv)
 		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.40-47
 		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.48-55
 		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL       // 49.56-63
-	};
+	};	*/
+// Si Map of 7 new strips
+	const char *SiMap[128] = {
+		"A0n0", "A0n1", "A0n2", "A0n3", "A1n0", "A1n1", "A1n2", "A1n3",		// 48.0-7
+		"A2n0", "A2n1", "A2n2", "A2n3", "B3n0", "B3n1",  "B1n",   NULL, 	// 48.8-15
+		"B0n0", "B0n1", "B0n2", "B0n3", "B1n0", "B1n1", "B1n2", "B1n3",		// 48.16-23
+		"B2n0", "B2n1", "B2n2", "B2n3", "B3n2", "B3n3",  "A1n",   NULL, 	// 48.24-31
+		"B0f0", "B0f1", "B0f2", "B0f3", "B1f0", "B1f1", "B1f2", "B1f3",		// 48.32-39
+		"B2f0", "B2f1", "B2f2", "B2f3", "B3f2", "B3f3",  "A1f",   NULL, 	// 48.40-47
+		"A0f0", "A0f1", "A0f2", "A0f3", "A1f0", "A1f1", "A1f2", "A1f3",		// 48.48-55
+		"A2f0", "A2f1", "A2f2", "A2f3", "B3f0", "B3f1",  "B1f",   NULL, 	// 48.56-63
+		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.0-7
+		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.8-15
+		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.16-23
+		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.24-31
+		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.32-39
+		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.40-47
+		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.48-55
+		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL       // 49.56-63
+	};	
+	
 	struct PropStruct {
 		float AX;	// track X: a*x + b
 		float BX;
@@ -396,21 +439,30 @@ int main(int argc, char **argv)
 
 	if (argc < 2) {
 		printf("Merge DANSS and EPECUR data files with the same run number\n");
-		printf("Part V - create a simple rot file with hits, selftriggers and tracks.\n");
-		printf("Usage: %s NNN\n", argv[0]);
+		printf("Part V - create a simple root file with hits, selftriggers and tracks.\n");
+		printf("Now with baseline subtraction for self triggers.\n");
+		printf("Usage: %s NNN | filename.data\n", argv[0]);
 		printf("Will use input file: data/testbench_NNN.data\n");
 		printf("And output file data/testbench_NNN.root\n");
+		printf("If filename.data is given filename.root will be created");
 		return 0;
 	}
 
-	fnum = strtol(argv[1], NULL, 10);
-
-	sprintf(str, "data/testbench_%3.3d.data", fnum);
-	fVME = fopen(str, "rb");
-
-	sprintf(str, "data/testbench_%3.3d.root", fnum);
+	if (isdigit(argv[1][0])) {
+		fnum = strtol(argv[1], NULL, 10);
+		sprintf(str, "data/testbench_%3.3d.data", fnum);
+		fVME = fopen(str, "rb");
+		sprintf(str, "data/testbench_%3.3d.root", fnum);
+		fOut = new TFile(str, "RECREATE");
+	} else {
+		fVME = fopen(argv[1], "rb");
+		strcpy(str, argv[1]);
+		ptr = strrchr(str, '.');
+		if (ptr) *ptr = '\0';
+		strcat(str, ".root");
+	}
 	fOut = new TFile(str, "RECREATE");
-
+	
 	if (!fVME || !fOut->IsOpen()) {
 		printf("Can not open all required files\n");
 		return 10;
