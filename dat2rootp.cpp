@@ -404,13 +404,13 @@ int main(int argc, char **argv)
 // Si Map of 7 new strips
 	const char *SiMap[128] = {
 		"A0n0", "A0n1", "A0n2", "A0n3", "A1n0", "A1n1", "A1n2", "A1n3",		// 48.0-7
-		"A2n0", "A2n1", "A2n2", "A2n3", "B3n0", "B3n1",  "B1n",   NULL, 	// 48.8-15
+		"A2n0", "A2n1", "A2n2", "A2n3", "B3n2", "B3n3",  "B1n",   NULL, 	// 48.8-15
 		"B0n0", "B0n1", "B0n2", "B0n3", "B1n0", "B1n1", "B1n2", "B1n3",		// 48.16-23
-		"B2n0", "B2n1", "B2n2", "B2n3", "B3n2", "B3n3",  "A1n",   NULL, 	// 48.24-31
+		"B2n0", "B2n1", "B2n2", "B2n3", "B3n0", "B3n1",  "A1n",   NULL, 	// 48.24-31
 		"B0f0", "B0f1", "B0f2", "B0f3", "A1f0", "A1f1", "A1f2", "A1f3",		// 48.32-39
-		"B2f0", "B2f1", "B2f2", "B2f3", "B3f2", "B3f3",  "A1f",   NULL, 	// 48.40-47
+		"B2f0", "B2f1", "B2f2", "B2f3", "B3f0", "B3f1",  "A1f",   NULL, 	// 48.40-47
 		"A0f0", "A0f1", "A0f2", "A0f3", "B1f0", "B1f1", "B1f2", "B1f3",		// 48.48-55
-		"A2f0", "A2f1", "A2f2", "A2f3", "B3f0", "B3f1",  "B1f",   NULL, 	// 48.56-63
+		"A2f0", "A2f1", "A2f2", "A2f3", "B3f2", "B3f3",  "B1f",   NULL, 	// 48.56-63
 		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.0-7
 		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.8-15
 		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.16-23
