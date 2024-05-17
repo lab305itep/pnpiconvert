@@ -9,4 +9,4 @@ fi
 ./makelist_vme  $1
 ./makelist_sync $1
 ./pconvert      $1
-./dat2rootp     $1
+./dat2rootp     Strip.conf $1

@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define KEYLEN 10
+#define KEYLEN 3
 #define ACHUNK 10000
 
 struct VMElistStruct {

@@ -14,6 +14,8 @@
 #include "recformat-2.h"
 
 #define MAXHIT 5
+#define MAXWFD 60
+#define MAXCHAN 64
 
 struct WaveFormParamStruct {
 	float A;	// amplitude
@@ -277,22 +279,22 @@ void VmeEvent::ProcessTrack(struct prop_hit *data, int len, struct TrackParamStr
 	for (i=0; i<len; i++) switch (data[i].brd) {
 		// X1
 	case 17:
-		wire = 100 - data[i].wire;
+		wire = 100 - 2*data[i].wire;
 		if (nX1 < MAXHIT) hitsX1[nX1] = wire;
 		nX1++;
 		break;
-	case 18:
-		wire = -data[i].wire;
-		if (nX1 < MAXHIT) hitsX1[nX1] = wire;
-		nX1++;
-		break;
+//	case 18:
+//		wire = -data[i].wire;
+//		if (nX1 < MAXHIT) hitsX1[nX1] = wire;
+//		nX1++;
+//		break;
 		// X2
-	case 21:
+	case 25:
 		wire = 100 - data[i].wire;
 		if (nX2 < MAXHIT) hitsX2[nX2] = wire;
 		nX2++;
 		break;
-	case 22:
+	case 26:
 		wire = -data[i].wire;
 		if (nX2 < MAXHIT) hitsX2[nX2] = wire;
 		nX2++;
@@ -310,22 +312,22 @@ void VmeEvent::ProcessTrack(struct prop_hit *data, int len, struct TrackParamStr
 		break;
 		// Y1
 	case 19:
-		wire = -100 + data[i].wire;
+		wire = -100 + 2*data[i].wire;
 		if (nY1 < MAXHIT) hitsY1[nY1] = wire;
 		nY1++;
 		break;
-	case 20:
-		wire = data[i].wire;
-		if (nY1 < MAXHIT) hitsY1[nY1] = wire;
-		nY1++;
-		break;
+//	case 20:
+//		wire = data[i].wire;
+//		if (nY1 < MAXHIT) hitsY1[nY1] = wire;
+//		nY1++;
+//		break;
 		// Y2
-	case 23:
+	case 27:
 		wire = -100 + data[i].wire;
 		if (nY2 < MAXHIT) hitsY2[nY2] = wire;
 		nY2++;
 		break;
-	case 24:
+	case 28:
 		wire = data[i].wire;
 		if (nY2 < MAXHIT) hitsY2[nY2] = wire;
 		nY2++;
@@ -374,89 +376,45 @@ int main(int argc, char **argv)
 	char *ptr;
 	int fnum;
 	FILE *fVME;
+	FILE *fConf;
 	TFile *fOut;
 	VmeEvent *evt;
 	union DataParam par;
 	TTree *tOut;
-	TTree *tSelf[128];
+	TTree *tSelf[MAXWFD][MAXCHAN];
+	struct WaveFormParamStruct SignalData[MAXWFD][MAXCHAN];
 	int i, irc, EventCnt;
 	int mod, chan;
-	const int ModShift = 48;
-// Si Map of PNPI test
-/*	const char *SiMap[128] = {
-		"DanssAR", "DanssAC", "DanssAL", "DanssBR", "DanssBC", "DanssBL", "DanssCR", "DanssCC", // 48.0-7
-		"DanssCL", "DanssDR", "DanssDC", "DanssDL", "DanssER", "DanssEC", "DanssEL", NULL, 	// 48.8-15
-		"DanssFR", "DanssFC", "DanssFL", NULL,      NULL     , NULL,      "DanssUC", "DanssVC", // 48.16-23
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 48.24-31
-		"Exp2R",   "Exp2L",   "Exp3R",   "Exp3L",   "Exp4R",   "Exp4L",   "Exp1R",   "Exp1L",   // 48.32-39
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 48.40-47
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 48.48-55
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 48.56-63
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.0-7
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.8-15
-		"New11",   "New12"  , "New13",   "New14",   "New15",   "New16"  , "New17",   "New18",   // 49.16-23
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.24-31
-		"New21",   "New22"  , "New23",   "New24",   "New25",   "New26"  , "New27",   "New28",   // 49.32-39
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.40-47
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.48-55
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL       // 49.56-63
-	};	*/
-// Si Map of 7 new strips
-	const char *SiMap[128] = {
-		"A0n0", "A0n1", "A0n2", "A0n3", "A1n0", "A1n1", "A1n2", "A1n3",		// 48.0-7
-		"A2n0", "A2n1", "A2n2", "A2n3", "B3n0", "B3n1",  "B1n",   NULL, 	// 48.8-15
-		"B0n0", "B0n1", "B0n2", "B0n3", "B1n0", "B1n1", "B1n2", "B1n3",		// 48.16-23
-		"B2n0", "B2n1", "B2n2", "B2n3", "B3n2", "B3n3",  "A1n",   NULL, 	// 48.24-31
-		"B0f0", "B0f1", "B0f2", "B0f3", "B1f0", "B1f1", "B1f2", "B1f3",		// 48.32-39
-		"B2f0", "B2f1", "B2f2", "B2f3", "B3f2", "B3f3",  "A1f",   NULL, 	// 48.40-47
-		"A0f0", "A0f1", "A0f2", "A0f3", "A1f0", "A1f1", "A1f2", "A1f3",		// 48.48-55
-		"A2f0", "A2f1", "A2f2", "A2f3", "B3f0", "B3f1",  "B1f",   NULL, 	// 48.56-63
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.0-7
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.8-15
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.16-23
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.24-31
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.32-39
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.40-47
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL     , // 49.48-55
-		NULL,      NULL     , NULL,      NULL,      NULL     , NULL,      NULL,      NULL       // 49.56-63
-	};	
-	
-	struct PropStruct {
-		float AX;	// track X: a*x + b
-		float BX;
-		float AY;	// trackYX: a*y + b
-		float BY;
-		float ABQ;	// quality - negative if bad track in one of the projections
-	} PropData;
-	struct WaveStruct {
-		float A;	// amplitude
-		float T;	// time
-		float I;	// integral
-		float Q;	// quality
-	};
-	struct WaveStruct SelfData;
-	struct WaveStruct SignalData[128];
+	struct WaveFormParamStruct SelfData;
+	struct TrackParamStruct PropData;
+	char cstr[1024];
 
-	if (argc < 2) {
+	if (argc < 3) {
 		printf("Merge DANSS and EPECUR data files with the same run number\n");
 		printf("Part V - create a simple root file with hits, selftriggers and tracks.\n");
 		printf("Now with baseline subtraction for self triggers.\n");
-		printf("Usage: %s NNN | filename.data\n", argv[0]);
+		printf("Usage: %s sipm.conf NNN | filename.data\n", argv[0]);
 		printf("Will use input file: data/testbench_NNN.data\n");
 		printf("And output file data/testbench_NNN.root\n");
 		printf("If filename.data is given filename.root will be created");
 		return 0;
 	}
 
-	if (isdigit(argv[1][0])) {
-		fnum = strtol(argv[1], NULL, 10);
+	fConf = fopen(argv[1], "rt");
+	if (!fConf) {
+		printf("Can not open SiPM config file %s [%m]\n", argv[1]);
+		return 50;
+	}
+
+	if (isdigit(argv[2][0])) {
+		fnum = strtol(argv[2], NULL, 10);
 		sprintf(str, "data/testbench_%3.3d.data", fnum);
 		fVME = fopen(str, "rb");
 		sprintf(str, "data/testbench_%3.3d.root", fnum);
 		fOut = new TFile(str, "RECREATE");
 	} else {
-		fVME = fopen(argv[1], "rb");
-		strcpy(str, argv[1]);
+		fVME = fopen(argv[2], "rb");
+		strcpy(str, argv[2]);
 		ptr = strrchr(str, '.');
 		if (ptr) *ptr = '\0';
 		strcat(str, ".root");
@@ -473,11 +431,19 @@ int main(int argc, char **argv)
 	tOut = new TTree("Event", "Event");
 	tOut->Branch("Track", &PropData, "AX/F:BX/F:AY/F:BY/F:ABQ/F");
 	memset(tSelf, 0, sizeof(tSelf));
-	for (i=0; i<128; i++) if (SiMap[i]) {
-		sprintf(str, "Self_%s", SiMap[i]);
-		tSelf[i] = new TTree(str, str);
-		tSelf[i]->Branch("Self", &SelfData, "A/F:T/F:I/F:Q/F");
-		tOut->Branch(SiMap[i], &SignalData[i], "A/F:T/F:I/F:Q/F");
+	for (;!feof(fConf);) {
+		if (!fgets(cstr, sizeof(cstr), fConf)) break;
+		if (strlen(cstr) == 0 || cstr[0] == '*') continue;
+		sscanf(cstr, "%d.%d", &mod, &chan);
+		if (mod <= 0 || mod >= MAXWFD || chan < 0 || chan >= MAXCHAN) {
+			printf("Bad string in the configuration file: %s\n", cstr);
+			continue;
+		}
+		sprintf(str, "Self_%2.2d_%2.2d", mod, chan);
+		tSelf[mod][chan] = new TTree(str, str);
+		tSelf[mod][chan]->Branch("Self", &SelfData, "A/F:T/F:I/F:Q/F");
+		sprintf(str, "SiPM_%2.2d_%2.2d", mod, chan);
+		tOut->Branch(str, &SignalData[mod][chan], "A/F:T/F:I/F:Q/F");
 	}
 
 	EventCnt = 0;
@@ -487,15 +453,14 @@ int main(int argc, char **argv)
 		memset(&PropData, 0, sizeof(PropData));
 		if (irc < 0) break;
 		switch (irc) {
-		case 0:
+		case 0:		// Self triggers
 			irc = evt->GetNextRecord(&par);
 			mod = (irc >> 16) & 0xFFFF;
 			chan = (irc >> 8) & 0x3F;
-			i = 64 * (mod - ModShift) + chan;
-			if (i<0 || i>=128) break;
-			if (!SiMap[i]) break;
-			memcpy(&SelfData, &par.wave, sizeof(struct WaveStruct));
-			tSelf[i]->Fill();
+			if (mod <= 0 || mod >= MAXWFD) break;
+			if (!tSelf[mod][chan]) continue;
+			memcpy(&SelfData, &par.wave, sizeof(struct WaveFormParamStruct));
+			tSelf[mod][chan]->Fill();
 			break;
 		case 1:
 			memset(SignalData, 0, sizeof(SignalData));
@@ -504,10 +469,10 @@ int main(int argc, char **argv)
 				if (irc < 0) break;
 				mod = (irc >> 16) & 0xFFFF;
 				chan = (irc >> 8) & 0x3F;
-				i = 64 * (mod - ModShift) + chan;
 				switch(irc & 0xFF) {
 				case TYPE_MASTER:
-					memcpy(&SignalData[i], &par.wave, sizeof(struct WaveStruct));
+					if (mod <= 0 || mod >= MAXWFD) break;
+					memcpy(&SignalData[mod][chan], &par.wave, sizeof(struct WaveFormParamStruct));
 					break;
 				case TYPE_PROP:
 					memcpy(&PropData, &par.track, sizeof(struct TrackParamStruct));
@@ -527,7 +492,7 @@ fin:
 	if (fOut) {
 		fOut->cd();
 		tOut->Write();
-		for (i=0; i<128; i++) if (tSelf[i]) tSelf[i]->Write();
+		for (mod = 0; mod < MAXWFD; mod++) for (chan = 0; chan < MAXCHAN; chan++)  if (tSelf[mod][chan]) tSelf[mod][chan]->Write();
 		fOut->Close();
 	}
 	return 0;
