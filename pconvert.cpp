@@ -316,7 +316,7 @@ int main(int argc, char **argv)
 		CycleCnt++;
 	}
 fin:
-	printf("%d cyclea with %d events found.\n", CycleCnt, EventCnt);
+	printf("%d cycles with %d events found.\n", CycleCnt, EventCnt);
 	delete prop;
 	delete evt;
 
