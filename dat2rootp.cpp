@@ -279,7 +279,7 @@ void VmeEvent::ProcessTrack(struct prop_hit *data, int len, struct TrackParamStr
 	for (i=0; i<len; i++) switch (data[i].brd) {
 		// X1
 	case 17:
-		wire = 100 - 2*data[i].wire;
+		wire = -100 + 2*data[i].wire;
 		if (nX1 < MAXHIT) hitsX1[nX1] = wire;
 		nX1++;
 		break;
