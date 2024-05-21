@@ -120,6 +120,7 @@ public:
 	~PropCycle(void);
 	struct hw_rec_struct_prop *GetNextTrigger();
 	int Read(FILE *f);
+	inline int ToTheEnd(void) { return (head->len - rptr);};
 };
 
 PropCycle::PropCycle(void)
@@ -313,6 +314,8 @@ int main(int argc, char **argv)
 			EventCnt++;
 			VMEevent++;
 		}
+		irc = prop->ToTheEnd();
+		if (irc > 12) printf("Epecur cycle not fully porcessed: %d bytes left\n", irc);
 		CycleCnt++;
 	}
 fin:

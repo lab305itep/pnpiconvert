@@ -16,7 +16,8 @@ void drawHitPlane(TTree *evt, const char *what = "anystrip", const double Z = 14
 		printf("anycube - hit in any SiPM of the cube configuration\n");
 		return;
 	} else if (what[0] == 'S' && what[1] == 'i') {	// this is a single SiPM name like SiPM_53_01 expected
-		str = str + what;
+		sprintf(strval, " && %s.A > 200", what);
+		str = str + strval;
 	} else if (TString(what) == "none") {		// ignore strips
 		// do nothing
 	} else if (TString(what) == "anystrip") {	// for Strips
@@ -50,5 +51,6 @@ void drawHitPlane(TTree *evt, const char *what = "anystrip", const double Z = 14
 		return;
 	}
 	sprintf(strval, "AY*%f+BY:AX*%f+BX", Z, Z);
+	printf("%s [%s]\n", strval, str.Data());
 	evt->Draw(strval, str.Data());
 }

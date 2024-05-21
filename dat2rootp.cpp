@@ -138,7 +138,7 @@ int VmeEvent::GetNextRecord(union DataParam *par)
 	int chan;
 	int irc;
 
-
+	memset(par, 0, sizeof(union DataParam));
 	if (!(((head->type & REC_TYPEMASK) == REC_SELFTRIG) || (head->type & REC_EVENT))) return -2;
 	if (ptr >= head->len) return -1;
 	rec = (union hw_rec_union *) &buf[ptr];
@@ -388,6 +388,7 @@ int main(int argc, char **argv)
 	struct WaveFormParamStruct SelfData;
 	struct TrackParamStruct PropData;
 	char cstr[1024];
+	int Flags;
 
 	if (argc < 3) {
 		printf("Merge DANSS and EPECUR data files with the same run number\n");
@@ -430,6 +431,7 @@ int main(int argc, char **argv)
 
 	tOut = new TTree("Event", "Event");
 	tOut->Branch("Track", &PropData, "AX/F:BX/F:AY/F:BY/F:ABQ/F");
+	tOut->Branch("Flags", &Flags, "Flags/i");
 	memset(tSelf, 0, sizeof(tSelf));
 	for (;!feof(fConf);) {
 		if (!fgets(cstr, sizeof(cstr), fConf)) break;
@@ -445,12 +447,11 @@ int main(int argc, char **argv)
 		sprintf(str, "SiPM_%2.2d_%2.2d", mod, chan);
 		tOut->Branch(str, &SignalData[mod][chan], "A/F:T/F:I/F:Q/F");
 	}
+	fclose(fConf);
 
 	EventCnt = 0;
 	for(;;) {
 		irc = evt->Read(fVME);
-		memset(SignalData, 0, sizeof(SignalData));
-		memset(&PropData, 0, sizeof(PropData));
 		if (irc < 0) break;
 		switch (irc) {
 		case 0:		// Self triggers
@@ -463,12 +464,15 @@ int main(int argc, char **argv)
 			tSelf[mod][chan]->Fill();
 			break;
 		case 1:
-			memset(SignalData, 0, sizeof(SignalData));
+			memset(&SignalData[0][0], 0, sizeof(SignalData));
+			memset(&PropData, 0, sizeof(PropData));
+			Flags = 0;
 			for (;;) {
 				irc = evt->GetNextRecord(&par);
 				if (irc < 0) break;
 				mod = (irc >> 16) & 0xFFFF;
 				chan = (irc >> 8) & 0x3F;
+				if ((irc & 0xFF) < 32) Flags |= 1 << (irc & 0xFF);
 				switch(irc & 0xFF) {
 				case TYPE_MASTER:
 					if (mod <= 0 || mod >= MAXWFD) break;
