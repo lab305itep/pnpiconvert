@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 if [ x$1 == "x" ] ; then
 	echo Usage: $0 run_number [SiPM.conf]

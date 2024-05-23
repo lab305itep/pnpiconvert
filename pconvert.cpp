@@ -298,15 +298,20 @@ int main(int argc, char **argv)
 		}
 		for(i=0; i<num; i++) {
 			prec = prop->GetNextTrigger();
-			irc = evt->Read(fVME);
-			if (irc < 0) {
-				goto fin;
-			} else if (irc == 0) {
-				evt->Write(fOut);
-				continue;
+			for (;;) {
+				irc = evt->Read(fVME);
+				if (irc < 0) {
+					printf("Bad VME read : irc = %d @ VMEevent %d\n", irc, VMEevent);
+					goto fin;
+				} else if (irc == 0) {
+					evt->Write(fOut);
+					continue;
+				}
+				break;
 			}
 			if (!prec) {
-				printf("*** Cycle %d Prop data format error - trigger counter does not match to real triggers.\n");
+				printf("*** Cycle %d Prop data format error - trigger counter does not match to real triggers.\n", 
+					CycleCnt);
 				goto fin;
 			}
 			evt->Add(prec, (prec->len + 1) * sizeof(short));
